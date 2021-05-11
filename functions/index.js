@@ -1,18 +1,24 @@
 const functions = require("firebase-functions")
 const admin = require("firebase-admin")
 admin.initializeApp()
-const express = require("express");
-const app =express();
+const express = require("express")
+const app = express()
 
-app.get("/data",(req,res)=>{
+app.get("/dataFb", (req, res) => {
   admin
     .firestore()
     .collection("data")
-    .get()
+    .orderBy("createdAt", "desc")
+    .get()  
     .then((data) => {
       let value = []
       data.forEach((doc) => {
-        value.push(doc.data())
+        value.push({
+          autherId: doc.data().autherId,
+          autherFirstName: doc.data().autherFirstName,
+          autherLastName: doc.data().autherLastName,
+          createdAt:new Date().toISOString(),
+        })
       })
       return res.json(value)
     })
@@ -20,27 +26,23 @@ app.get("/data",(req,res)=>{
       res.status(500).json({ error: `Something ${error} went wrong` })
     })
 })
-exports.dataCreate = functions.https.onRequest((req, res) => {
-  if (req.method !== "POST") {
-    return res.status(400).json({ error: `Bad request` })
-  } else {
-    const dataFields = {
-      autherFirstName: req.body.autherFirstName,
-      autherLastName: req.body.autherLastName,
-      autherId: req.body.autherId,
-      createdAt: admin.firestore.Timestamp.fromDate(new Date()),
-    }
-    admin
-      .firestore()
-      .collection("data")
-      .add(dataFields)
-      .then((doc) => {
-        res.json({ message: `Document ${doc.id} is created successfully` })
-      })
-      .catch((error) => {
-        res.status(500).json({ error: `Document is failed to create` })
-      })
+app.post("/dataFb", (req, res) => {
+  const dataFields = {
+    autherFirstName: req.body.autherFirstName,
+    autherLastName: req.body.autherLastName,
+    autherId: req.body.autherId,
+    createdAt: new Date().toISOString(),
   }
+  admin
+    .firestore()
+    .collection("data")
+    .add(dataFields)
+    .then((doc) => {
+      res.json({ message: `Document ${doc.id} is created successfully` })
+    })
+    .catch((error) => {
+      res.status(500).json({ error: `Document is failed to create` })
+    })
 })
 
 //https://baseurl.com/api/
