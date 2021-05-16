@@ -5,13 +5,12 @@ admin.initializeApp()
 const app = require("express")()
 
 const config = {
-  apiKey: "AIzaSyCiWSM8ILjnwG9xa8dSQQTgJKLscQUoTL0",
-  authDomain: "functions-a1e55.firebaseapp.com",
-  databaseURL: "https://functions-a1e55-default-rtdb.firebaseio.com",
-  projectId: "functions-a1e55",
-  storageBucket: "functions-a1e55.appspot.com",
-  messagingSenderId: "1040882111748",
-  appId: "1:1040882111748:web:832c710ea8f5b52950ac51",
+  apiKey: "AIzaSyAEbo6HXlNIuojRfhLgEeH7VAmD0HZ0DuE",
+  authDomain: "fbfunctions-399d6.firebaseapp.com",
+  projectId: "fbfunctions-399d6",
+  storageBucket: "fbfunctions-399d6.appspot.com",
+  messagingSenderId: "1067254125484",
+  appId: "1:1067254125484:web:4aea7414f2e16cebf72009",
 }
 
 const firebase = require("firebase")
@@ -29,8 +28,8 @@ app.get("/dataFb", (req, res) => {
       data.forEach((doc) => {
         value.push({
           autherId: doc.data().autherId,
-          autherFirstName: doc.data().autherFirstName,
-          autherLastName: doc.data().autherLastName,
+          body: doc.data().body,
+          userHandle: doc.data().userHandle,
           createdAt: new Date().toISOString(),
         })
       })
@@ -41,12 +40,34 @@ app.get("/dataFb", (req, res) => {
     })
 })
 
+const FBAuth = (req, res, next) => {
+  let idToken
+  if (req.headers.authorization && req.headers.authorization.startsWith("Bearer ")) {
+    idToken = req.headers.authorization.split("Bearer ")[1]
+  } else {
+    console.error(error)
+    return status(403).json({ error: "Unauthorised" })
+  }
+  admin
+    .auth()
+    .verifyIdToken(idToken)
+    .then((decodedToken) => {
+      console.log(decodedToken)
+     req.user={handle:decodedToken.uid}
+      // return db.collection("users").where("userId", "==", decodedToken.uid ).limit(1).get()  
+      return next()
+    })
+    .catch((error) => {
+      console.error(error)
+      return res.status(403).json(error)
+    })
+}
+
 // //create
-app.post("/dataFb", (req, res) => {
+app.post("/dataFb", FBAuth, (req, res) => {
   const dataFields = {
-    autherFirstName: req.body.autherFirstName,
-    autherLastName: req.body.autherLastName,
-    autherId: req.body.autherId,
+    body: req.body.body,
+    userHandle: req.user.handle,
     createdAt: new Date().toISOString(),
   }
   db.collection("data")
@@ -104,7 +125,7 @@ app.post("/signUp", (req, res) => {
       // if (doc.exists) {
       //   return res.status(400).json({ handle: `handle Already in use` })
       // } else {
-        return firebase.auth().createUserWithEmailAndPassword(newUser.email, newUser.password)
+      return firebase.auth().createUserWithEmailAndPassword(newUser.email, newUser.password)
       // }
     })
     .then((data) => {
@@ -149,9 +170,7 @@ app.post("/signIn", (req, res) => {
   if (!isEmail(creds.email)) {
     errors.email = "Email must be valid"
   }
-  if (creds.password.length != 6) {
-    errors.password = "password is not having 6 characters"
-  }
+
   if (isEmpty(creds.password)) {
     errors.password = "Password Should not be empty"
   }
@@ -167,7 +186,9 @@ app.post("/signIn", (req, res) => {
       return res.status(200).json({ token })
     })
     .catch((error) => {
-      return res.status(500).json({ error: error.code })
+      if (error.code === "auth/wrong-password") {
+        return res.status(403).json({ general: "Wrong credentials!!! Try again" })
+      } else return res.status(500).json({ error: error.code })
     })
 })
 
